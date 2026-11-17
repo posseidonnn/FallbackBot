@@ -1,4 +1,8 @@
-import os, random
+import os
+import random
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
 from wzgram import Client, filters, enums
 from wzgram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
@@ -23,10 +27,26 @@ def get_markup():
     return InlineKeyboardMarkup([[btn]])
 
 
+class Health(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+    def log_message(self, *args):
+        pass
+
+
+def run_web():
+    HTTPServer(("0.0.0.0", int(os.environ.get("PORT", 8080))), Health).serve_forever()
+
+
 app = Client("FallbackBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
 
-@app.on_message(filters.text & filters.incoming & (filters.private | filters.group) & ~filters.bot)
+@app.on_message(
+    filters.text & filters.incoming & (filters.private | filters.group) & ~filters.bot
+)
 async def notice(c, m):
     markup = get_markup()
     try:
@@ -48,4 +68,5 @@ async def notice(c, m):
         print(e)
 
 
+threading.Thread(target=run_web, daemon=True).start()
 app.run()
